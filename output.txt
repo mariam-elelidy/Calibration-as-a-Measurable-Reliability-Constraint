@@ -1,0 +1,160 @@
+Calibration Decomposition — Three Miscalibration Regimes
+──────────────────────────────────────────────────────────────────────────────
+n = 5000  │  bins = 10  │  seed = 42
+T* optimised via NLL minimisation (minimize_scalar, bounds [0.1, 10.0])
+──────────────────────────────────────────────────────────────────────────────
+
+NOTE ON THE ORIGINAL CODE
+  The original artifact used T = 1.7 (hardcoded). This made ALL metrics worse:
+  ΔECE = +0.056, ΔNLL = +0.071, ΔBrier = +0.023. The reason: the model is
+  overconfident (T* < 1 needed), and applying T = 1.7 > 1 pushes probabilities
+  further toward 0.5 — the opposite of the required correction. Calibration
+  applied in the wrong direction is worse than no calibration.
+
+══════════════════════════════════════════════════════════════════════════════
+SCENARIO 1 — OVERCONFIDENCE   (T* = 0.1933, regime: T* < 1)
+══════════════════════════════════════════════════════════════════════════════
+
+  Metrics tensor  [ECE, NLL, Brier]
+    Before : [0.15901  0.20371  0.04336]
+    After  : [0.00409  0.04381  0.01205]
+    Delta  : [-0.15491  -0.15990  -0.03131]
+
+  Improvement:
+    ECE    19/20 bars filled   97.4% reduction
+    NLL    16/20 bars filled   78.5% reduction
+    Brier  14/20 bars filled   72.2% reduction
+
+  Most overconfident bin: 0.3-0.4  gap = -0.299  (conf=0.345, acc=0.046)
+  Overconfident bins (|gap|>0.05): 5/10
+
+  Reliability table BEFORE
+  bin       acc    conf    gap    count   direction
+  0.0-0.1   0.000  0.066  -0.066   694   OVERCONF
+  0.1-0.2   0.000  0.144  -0.144   950   OVERCONF
+  0.2-0.3   0.002  0.241  -0.239   468   OVERCONF
+  0.3-0.4   0.046  0.345  -0.299   238   OVERCONF  <- worst bin
+  0.4-0.5   0.232  0.444  -0.212   112   OVERCONF
+  0.5-0.6   0.828  0.557  +0.271   116   UNDERCONF  <- sign flip
+  0.6-0.7   0.957  0.658  +0.299   211   UNDERCONF
+  0.7-0.8   0.998  0.756  +0.242   489   UNDERCONF
+  0.8-0.9   0.999  0.853  +0.146   988   UNDERCONF
+  0.9-1.0   1.000  0.933  +0.067   734   UNDERCONF
+
+  Pattern: S-curve. Bins below 0.5 all overconfident; above 0.5 all
+  underconfident. This is characteristic of logit-scale overconfidence,
+  not a per-bin irregularity. Temperature scaling corrects it globally.
+
+  Reliability table AFTER (T* = 0.1933)
+  bin       acc    conf    gap    count   direction
+  0.0-0.1   0.004  0.005  -0.000  2341   calibrated
+  0.3-0.4   0.214  0.347  -0.132    28   OVERCONF   <- small residual
+  0.5-0.6   0.800  0.540  +0.260    15   UNDERCONF
+  0.7-0.8   0.800  0.760  +0.040    30   calibrated
+  0.8-0.9   0.836  0.854  -0.018    55   calibrated
+  0.9-1.0   0.996  0.996  -0.000  2417   calibrated
+  (sparse bins omitted)
+
+══════════════════════════════════════════════════════════════════════════════
+SCENARIO 2 — UNDERCONFIDENCE   (T* = 4.3911, regime: T* > 1)
+══════════════════════════════════════════════════════════════════════════════
+
+  Metrics tensor  [ECE, NLL, Brier]
+    Before : [0.16869  0.80433  0.27951]
+    After  : [0.01001  0.67866  0.24284]
+    Delta  : [-0.15867  -0.12567  -0.03667]
+
+  Improvement:
+    ECE    19/20 bars filled   94.1% reduction
+    NLL     3/20 bars filled   15.6% reduction   <- ECE and NLL diverge
+    Brier   3/20 bars filled   13.1% reduction
+
+  Observation: ECE drops 94% while NLL drops only 16%. A model that was
+  hedging has irreducible uncertainty in its logit signal. Temperature
+  scaling realigns confidence to frequency but cannot recover discriminative
+  information that was never encoded in the logits.
+
+  Reliability table BEFORE (mirror image of overconfidence)
+  bin       acc    conf    gap    count   direction
+  0.0-0.1   0.322  0.061  +0.261   360   UNDERCONF
+  0.1-0.2   0.401  0.151  +0.250   521   UNDERCONF
+  0.2-0.3   0.444  0.251  +0.193   527   UNDERCONF
+  0.3-0.4   0.435  0.351  +0.084   504   UNDERCONF
+  0.4-0.5   0.484  0.449  +0.035   531   calibrated
+  0.5-0.6   0.494  0.550  -0.056   526   OVERCONF   <- sign flip
+  0.6-0.7   0.547  0.654  -0.106   495   OVERCONF
+  0.7-0.8   0.574  0.749  -0.176   563   OVERCONF
+  0.8-0.9   0.569  0.850  -0.281   552   OVERCONF
+  0.9-1.0   0.651  0.938  -0.287   421   OVERCONF
+
+══════════════════════════════════════════════════════════════════════════════
+SCENARIO 3 — CLASS IMBALANCE  (T* = 0.5875, P(y=1) = 0.15)
+══════════════════════════════════════════════════════════════════════════════
+
+  Metrics tensor  [ECE, NLL, Brier]
+    Before : [0.19312  0.37352  0.11454]
+    After  : [0.15063  0.34163  0.10701]
+    Delta  : [-0.04249  -0.03190  -0.00753]
+
+  Improvement:
+    ECE     4/20 bars filled   22.0% reduction   <- vs 97% in overconf
+    NLL     2/20 bars filled    8.5% reduction
+    Brier   1/20 bars filled    6.6% reduction
+
+  Class-conditional ECE:
+    Global   : 0.19312 -> 0.15063   Delta = -0.04249
+    Minority : 0.26608 -> 0.20810   Delta = -0.05798
+    Majority : 0.27394 -> 0.21542   Delta = -0.05851
+
+  WARNING: Global ECE improves but minority-class ECE remains 0.208 after
+  calibration. In clinical settings y=1 is typically the actionable class.
+  A single global ECE number would not expose this residual failure.
+
+  Reliability table AFTER — bins 0.5-1.0 are MORE overconfident than before
+  bin       acc    conf    gap    count   direction
+  0.0-0.1   0.007  0.035  -0.027  2049   calibrated  <- low bins improve
+  0.1-0.2   0.020  0.144  -0.124   691   OVERCONF
+  0.2-0.3   0.064  0.249  -0.185   425   OVERCONF
+  0.3-0.4   0.102  0.350  -0.248   294   OVERCONF
+  0.4-0.5   0.116  0.447  -0.331   250   OVERCONF
+  0.5-0.6   0.157  0.546  -0.389   210   OVERCONF  <- before: -0.353, now worse
+  0.6-0.7   0.240  0.648  -0.409   196   OVERCONF  <- before: -0.321, now worse
+  0.7-0.8   0.350  0.749  -0.399   200   OVERCONF  <- before: -0.202, now worse
+  0.8-0.9   0.523  0.852  -0.329   218   OVERCONF  <- before: -0.107, now worse
+  0.9-1.0   0.827  0.963  -0.136   467   OVERCONF  <- before: +0.025, now OVERCONF
+
+══════════════════════════════════════════════════════════════════════════════
+SUMMARY TENSOR  [ECE_before, NLL_before, Brier_before, ECE_after, NLL_after, Brier_after]
+Rows: [Overconfidence, Underconfidence, Class Imbalance]
+══════════════════════════════════════════════════════════════════════════════
+[[0.15901  0.20371  0.04336  0.00409  0.04381  0.01205],
+ [0.16869  0.80433  0.27951  0.01001  0.67866  0.24284],
+ [0.19312  0.37352  0.11454  0.15063  0.34163  0.10701]]
+
+Delta tensor  [ΔECE, ΔNLL, ΔBrier]  (after - before)
+[[-0.15491  -0.15990  -0.03131],   # Overconfidence: T* works fully
+ [-0.15867  -0.12567  -0.03667],   # Underconfidence: T* works fully
+ [-0.04249  -0.03190  -0.00753]]   # Class imbalance: T* partial fix only
+
+──────────────────────────────────────────────────────────────────────────────
+CROSS-SCENARIO OBSERVATIONS
+──────────────────────────────────────────────────────────────────────────────
+
+1. T* direction encodes regime. T*=0.193 (overconf), T*=4.391 (underconf),
+   T*=0.588 (imbalance + overconf). T* alone tells you which regime without
+   needing to inspect every bin first.
+
+2. ECE and NLL diverge under underconfidence. ECE drops 94% while NLL drops
+   only 16%. This divergence is a signal: NLL's residual reflects discriminative
+   information that was never present in the logit signal. Calibration cannot
+   create information that the model never encoded.
+
+3. Class imbalance is the only scenario where T* fails structurally.
+   ECE drops only 22%. Bins 0.5-1.0 are MORE overconfident after calibration.
+   T* is globally optimal (minimises NLL) yet makes per-bin reliability worse
+   in the high-confidence range. A global scalar cannot resolve a base-rate
+   mismatch that operates differently across bins.
+
+4. A hardcoded T=1.7 would worsen overconfidence by 5.6 ECE points. T* must
+   be optimised, not assumed. The sign of the correction matters as much as
+   the magnitude.
