@@ -179,7 +179,7 @@ $$\text{model is reliability-valid} \iff \text{ECE}(f_\theta) \leq \varepsilon \
 This means:
 1. Setting an explicit ECE threshold before deployment, not just reporting the number
 2. Requiring class-conditional ECE for imbalanced problems, not just global ECE
-3. Stress-testing T* stability across distribution shifts (connecting to the [assumption stress harness](assumption_stress_harness.py))
+3. Stress-testing T* stability across distribution shifts (connecting to the [assumption stress harness](https://github.com/mariam-elelidy/Assumption-Stress-Harness)
 4. Treating ECE–NLL divergence as a discriminative quality flag, not a metric inconsistency
 
 A model that reports ECE = 0.04 after calibration has not been verified reliable. It has passed one measurement at one distribution. Calibration without stability testing is a false sense of safety.
