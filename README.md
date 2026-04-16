@@ -8,7 +8,7 @@
 
 A systematic decomposition of probabilistic miscalibration into three distinct regimes — overconfidence, underconfidence, and class imbalance — with optimised temperature scaling applied to each and bin-level reliability tables showing exactly where and why calibration succeeds or fails.
 
-Part of a series on measurable reliability in ML. See also: [Split Conformal Prediction](https://github.com/mariam-elelidy/Mathematical-Reliability-for-ML-Predictions) · [Assumption Stress Harness] · [Influence & Stability Analysis].
+Part of a series on measurable reliability in ML. See also: [Split Conformal Prediction](https://github.com/mariam-elelidy/Mathematical-Reliability-for-ML-Predictions) · [Assumption Stress Harness](https://github.com/mariam-elelidy/Assumption-Stress-Harness) · [Influence & Stability Analysis].
 
 ---
 
